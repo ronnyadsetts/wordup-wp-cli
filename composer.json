@@ -1,0 +1,18 @@
+{
+    "name": "wp-cli/wordup",
+    "description": "Provide special wordpress cli commands for the wordup CLI",
+    "type": "wp-cli-package",
+    "license": "GPL-3.0-only",
+    "authors": [
+        {
+            "name": "wordup team",
+            "homepage": "https://github.com/wordup-dev"
+        }
+    ],
+    "require": {
+        "php": ">=5.6"
+    },
+    "autoload": {
+        "files": [ "command.php" ]
+    }
+}
