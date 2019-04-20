@@ -18,7 +18,7 @@ class Wordup_tools {
 
     public static function connect_src_with_wp($wp_package){
         //Connect src with wordpress
-        WP_CLI::log('Connect your '.$wp_package['type'].' source code with wordpress');
+        WP_CLI::log('Connect your '.$wp_package['type'].' source code with WordPress');
         WP_CLI::launch('ln -s /src /var/www/html/wp-content/'.$wp_package['type'].'/'.self::get_project_dirname($wp_package));
         
         //Activate Plugin
@@ -86,12 +86,12 @@ class Wordup_Commands {
     public $scaffold = FALSE;
 
     /**
-     * Installs the base wordpress dev stag
+     * Installs the base WordPress dev stack
      *
      * ## OPTIONS
      * 
      * <config>
-     * : A base64 encoded json string, with the wp-package config 
+     * : A base64 encoded json string, with the wordup package.json config 
      * 
      * [--wordup-connect=<wordup-connect>]
      * : A url to an wordpress hosted website, with the wordup-connect plugin installed an running
@@ -136,7 +136,7 @@ class Wordup_Commands {
 
         Wordup_tools::connect_src_with_wp($this->wp_package);
 
-        WP_CLI::success( "Wordpress development stag successfully installed under $this->server:$this->server_port" );
+        WP_CLI::success( "WordPress development stack successfully installed under $this->server:$this->server_port" );
     }
 
     /**
@@ -145,7 +145,7 @@ class Wordup_Commands {
      * ## OPTIONS
      * 
      * <config>
-     * : A base64 encoded json string, with the wp-package config 
+     * : A base64 encoded json string, with the wordup package.json config 
      *
      * [--type=<type>]
      * : What do you want to export
@@ -228,15 +228,17 @@ class Wordup_Commands {
     private function parse_config($config){
         $config_json = json_decode(base64_decode($config), true); 
         if(!is_array($config_json)){
-            WP_CLI::error( "Could not parse wp-package file" );
+            WP_CLI::error( "Could not parse wordup package.json settings" );
+        }else if(empty($config_json['slug']) || empty($config_json['type'])){
+            WP_CLI::error( "Could not find wordup settings in package.json" );
         }else{
-            WP_CLI::log( "Parsed wp-package file: ".$config_json['name'] );
+            WP_CLI::log( "Parsed wordup package.json with slug: ".$config_json['slug'] );
         }
         $this->wp_package  = $config_json;
     }
 
     private function install_from_scratch() {
-        $installation_config = $this->wp_package['installation'];
+        $installation_config = $this->wp_package['wpInstall'];
 
         //Install basic stuff
         WP_CLI::runcommand('core install  \
@@ -357,7 +359,7 @@ class Wordup_Commands {
         //Make 
         $resp = file_get_contents(Wordup_tools::get_signed_url($url, '/wordup/v1/dl/', $private_key));
         if(!$resp){
-            WP_CLI::error( "Could not access connected wordpress website");
+            WP_CLI::error( "Could not access connected WordPress website");
         }
 
         $resp_array = json_decode($resp, TRUE);
