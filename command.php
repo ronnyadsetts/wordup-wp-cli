@@ -284,17 +284,22 @@ class Wordup_Commands {
             }
 
             $internal_name = Wordup_tools::get_project_dirname($this->wp_package);
+            $internal_path = '/var/www/html/wp-content/'.$this->wp_package['type'].'/'.$internal_name;
 
-            if($this->wp_package['type'] == 'themes'){
-                WP_CLI::runcommand('scaffold _s '.$internal_name);
-            }else if($this->wp_package['type'] == 'plugins'){
-                WP_CLI::runcommand('scaffold plugin '.$internal_name);
+            if(Wordup_tools::is_dir_empty($internal_path)){
+
+                if($this->wp_package['type'] == 'themes'){
+                    WP_CLI::runcommand('scaffold _s '.$internal_name);
+                }else if($this->wp_package['type'] == 'plugins'){
+                    WP_CLI::runcommand('scaffold plugin '.$internal_name);
+                }
+
+                //Move all files to src and delete folder 
+                WP_CLI::launch('cp -r '.$internal_path.'/. /src/');
+                WP_CLI::launch('rm -r '.$internal_path);
+            }else{
+                WP_CLI::error( "Could not scaffold data, folder is not empty");
             }
-
-            //Move all files to src and delete folder 
-            WP_CLI::launch('cp -r /var/www/html/wp-content/'.$this->wp_package['type'].'/'.$internal_name.'/. /src/');
-            WP_CLI::launch('rm -r /var/www/html/wp-content/'.$this->wp_package['type'].'/'.$internal_name);
-
         }
     }
 
