@@ -283,11 +283,11 @@ class Wordup_Commands {
                 WP_CLI::launch('unlink /src/.scaffold');
             }
 
-            $internal_name = Wordup_tools::get_project_dirname($this->wp_package);
-            $internal_path = '/var/www/html/wp-content/'.$this->wp_package['type'].'/'.$internal_name;
+            if(Wordup_tools::is_dir_empty('/src')){
 
-            if(Wordup_tools::is_dir_empty($internal_path)){
-
+                $internal_name = Wordup_tools::get_project_dirname($this->wp_package);
+                $internal_path = '/var/www/html/wp-content/'.$this->wp_package['type'].'/'.$internal_name;
+    
                 if($this->wp_package['type'] == 'themes'){
                     WP_CLI::runcommand('scaffold _s '.$internal_name);
                 }else if($this->wp_package['type'] == 'plugins'){
