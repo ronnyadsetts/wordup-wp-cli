@@ -276,7 +276,11 @@ class Wordup_Commands {
             }
         }
 
-        // ------ Scaffold ------------
+        $this->scaffold_src();
+    }
+
+    private function scaffold_src() {
+
         if($this->scaffold){
             //Check if .scaffold file exists and delete it 
             if(is_file('/src/.scaffold')){
@@ -350,6 +354,7 @@ class Wordup_Commands {
         file_put_contents('/var/www/html/.htaccess', $htaccess);
 
         $this->delete_installed_project();
+        $this->scaffold_src();
 
     }
 
@@ -426,7 +431,7 @@ class Wordup_Commands {
 
  
         $this->delete_installed_project();
-        
+        $this->scaffold_src();
     }
 
     //Check if current sourc code from plugin/theme is installed, and delete it
