@@ -180,11 +180,22 @@ class Wordup_Commands {
                 file_put_contents('/src/.distignore', implode("\n",array('.distignore','.git','.gitignore')));
             }
 
+            $export_version = FALSE;
+            if($this->wp_package['type'] === 'themes'){
+                $export_version = WP_CLI::runcommand('theme get '.$this->wp_package['slug'].' --field=version', array('return' => true));
+            }else if($this->wp_package['type'] === 'plugins'){
+                $export_version = WP_CLI::runcommand('plugin get '.$this->wp_package['slug'].' --field=version', array('return' => true));
+            }
 
-            WP_CLI::launch('mkdir /tmp/'.$project_folder_name);
-            WP_CLI::launch('cp -a /src/. /tmp/'.$project_folder_name);
-            WP_CLI::runcommand('dist-archive /tmp/'.$project_folder_name.' /dist/'.$project_folder_name.'.zip --format=zip');
-            WP_CLI::launch('rm -r /tmp/'.$project_folder_name);
+            if($export_version){
+
+                WP_CLI::launch('mkdir /tmp/'.$project_folder_name);
+                WP_CLI::launch('cp -a /src/. /tmp/'.$project_folder_name);
+                WP_CLI::runcommand('dist-archive /tmp/'.$project_folder_name.' /dist/'.$project_folder_name.'-'.$export_version.'.zip --format=zip');
+                WP_CLI::launch('rm -r /tmp/'.$project_folder_name);
+            }else{
+                WP_CLI::error( "Could not read version of the exported project");
+            }
         }
 
         //Export sql
@@ -218,7 +229,7 @@ class Wordup_Commands {
             
 
             //Create archive
-            WP_CLI::launch('cd /tmp/wordup-installation && tar czf /dist/installation.tar.gz .');
+            WP_CLI::launch('cd /tmp/wordup-installation && tar czf /dist/installation-'.date('Y-m-d').'.tar.gz .');
             WP_CLI::launch('rm -r /tmp/wordup-installation');
         }
 
