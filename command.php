@@ -156,6 +156,9 @@ class Wordup_Commands {
      *   - installation
      *   - sql
      * ---
+     * 
+     * [--filename=<filename>]
+     * : An optional filename
      *
      * ## EXAMPLES
      *
@@ -227,9 +230,10 @@ class Wordup_Commands {
             WP_CLI::launch('mkdir '.$project_tmp_path);
             WP_CLI::launch('cp -a /src/. '.$project_tmp_path);
             
+            $filename =  !empty($assoc_args['filename']) ? $assoc_args['filename'] : 'installation-'.date('Y-m-d');
 
             //Create archive
-            WP_CLI::launch('cd /tmp/wordup-installation && tar czf /dist/installation-'.date('Y-m-d').'.tar.gz .');
+            WP_CLI::launch('cd /tmp/wordup-installation && tar czf /dist/'. $filename.'.tar.gz .');
             WP_CLI::launch('rm -r /tmp/wordup-installation');
         }
 
