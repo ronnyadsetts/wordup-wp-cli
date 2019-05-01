@@ -305,15 +305,19 @@ class Wordup_Commands {
 
     private function install_from_archive($path) {
 
+        WP_CLI::launch('mkdir /tmp/wparchive');
+
         if (filter_var($path, FILTER_VALIDATE_URL)){
             WP_CLI::launch('curl -L "'.$path.'" > /tmp/archive.file');
-            WP_CLI::launch('rm -r /var/www/html/*');
-            WP_CLI::launch('tar -xvf /tmp/archive.file -C /var/www/html');
+            WP_CLI::launch('tar -xvf /tmp/archive.file -C /tmp/wparchive');
             WP_CLI::launch('unlink /tmp/archive.file');
         }else {
-            WP_CLI::launch('rm -r /var/www/html/*');
-            WP_CLI::launch('tar -xvf /source/'.$path.' -C /var/www/html');
+            WP_CLI::launch('tar -xvf /source/'.$path.' -C /tmp/wparchive');
         }
+
+        WP_CLI::launch('rm -r /var/www/html/*');
+        WP_CLI::launch('mv /tmp/wparchive/* /var/www/html/');
+        WP_CLI::launch('rm -rf /tmp/wparchive');
 
         //Read wordup-archive file
         $wordup_archive = json_decode(file_get_contents('/var/www/html/wordup-archive.json'), true);
