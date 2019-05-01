@@ -82,7 +82,7 @@ class Wordup_Commands {
     public $wp_package;
     public $server = 'http://localhost';
     public $server_port = '8000';
-
+    public $site_url = FALSE;
     public $scaffold = FALSE;
 
     /**
@@ -105,6 +105,9 @@ class Wordup_Commands {
      * [--scaffold]
      * : Scaffold project src data
      * 
+     * [--siteurl=<siteurl>]
+     * : A custom siteurl for the WordPress installation
+     * 
      * ## EXAMPLES
      *
      *     wp wordup install base64configstring
@@ -121,6 +124,9 @@ class Wordup_Commands {
 
         //Set scaffold
         $this->scaffold = $assoc_args['scaffold'];
+
+        //Set site_url
+        $this->site_url = $assoc_args['siteurl'];
 
         //Install types
         $wordup_connect = $assoc_args['wordup-connect'];
@@ -258,15 +264,18 @@ class Wordup_Commands {
         //Install basic stuff
         WP_CLI::runcommand('core install  \
                     --path="/var/www/html" \
-                    --url="'.$this->server.':"'.$this->server_port.' \
+                    --url="'.(!empty($this->site_url) ? $this->site_url : $this->server.':'.$this->server_port).'" \
                     --title="'.$installation_config['title'].'" \
                     --admin_user="'.$installation_config['adminUser'].'" \
                     --admin_password="'.$installation_config['adminPassword'].'" \
                     --admin_email="'.$installation_config['adminEmail'].'" \
                     --skip-email');
 
-        WP_CLI::runcommand("config set WP_HOME \'".$this->server.":\'.getenv\(\'WORDUP_PORT\'\) --raw");
-        WP_CLI::runcommand("config set WP_SITEURL \'".$this->server.":\'.getenv\(\'WORDUP_PORT\'\) --raw");
+        // Only set the flexible port siteurl config, if there is no custom site_url
+        if(empty($this->site_url)){
+            WP_CLI::runcommand("config set WP_HOME \'".$this->server.":\'.getenv\(\'WORDUP_PORT\'\) --raw");
+            WP_CLI::runcommand("config set WP_SITEURL \'".$this->server.":\'.getenv\(\'WORDUP_PORT\'\) --raw");
+        }
 
         // ------ Install Plugins -----------
         if(isset($installation_config['plugins']) && is_array($installation_config['plugins'])){
@@ -294,34 +303,6 @@ class Wordup_Commands {
         $this->scaffold_src();
     }
 
-    private function scaffold_src() {
-
-        if($this->scaffold){
-            //Check if .scaffold file exists and delete it 
-            if(is_file('/src/.scaffold')){
-                WP_CLI::launch('unlink /src/.scaffold');
-            }
-
-            if(Wordup_tools::is_dir_empty('/src')){
-
-                $internal_name = Wordup_tools::get_project_dirname($this->wp_package);
-                $internal_path = '/var/www/html/wp-content/'.$this->wp_package['type'].'/'.$internal_name;
-    
-                if($this->wp_package['type'] == 'themes'){
-                    WP_CLI::runcommand('scaffold _s '.$internal_name);
-                }else if($this->wp_package['type'] == 'plugins'){
-                    WP_CLI::runcommand('scaffold plugin '.$internal_name);
-                }
-
-                //Move all files to src and delete folder 
-                WP_CLI::launch('cp -r '.$internal_path.'/. /src/');
-                WP_CLI::launch('rm -r '.$internal_path);
-            }else{
-                WP_CLI::error( "Could not scaffold data, folder is not empty");
-            }
-        }
-    }
-
     private function install_from_archive($path) {
 
         if (filter_var($path, FILTER_VALIDATE_URL)){
@@ -346,8 +327,13 @@ class Wordup_Commands {
         WP_CLI::runcommand('config set DB_USER wordpress');
         WP_CLI::runcommand('config set DB_PASSWORD wordpress');
         WP_CLI::runcommand('config set DB_HOST db:3306');
-        WP_CLI::runcommand("config set WP_HOME \'".$this->server.":\'.getenv\(\'WORDUP_PORT\'\) --raw");
-        WP_CLI::runcommand("config set WP_SITEURL \'".$this->server.":\'.getenv\(\'WORDUP_PORT\'\) --raw");
+        if(empty($this->site_url)){
+            WP_CLI::runcommand("config set WP_HOME \'".$this->server.":\'.getenv\(\'WORDUP_PORT\'\) --raw");
+            WP_CLI::runcommand("config set WP_SITEURL \'".$this->server.":\'.getenv\(\'WORDUP_PORT\'\) --raw");
+        }else{
+            WP_CLI::runcommand("config set WP_HOME ".$this->site_url);
+            WP_CLI::runcommand("config set WP_SITEURL ".$this->site_url);
+        }
         WP_CLI::runcommand('db import '.$sql_dump_path);
         
         WP_CLI::runcommand('rewrite flush');
@@ -427,8 +413,13 @@ class Wordup_Commands {
             }
 
             WP_CLI::runcommand('config create --dbname=wordpress --dbuser=wordpress --dbpass=wordpress --dbhost=db:3306 --force');
-            WP_CLI::runcommand("config set WP_HOME \'".$this->server.":\'.getenv\(\'WORDUP_PORT\'\) --raw");
-            WP_CLI::runcommand("config set WP_SITEURL \'".$this->server.":\'.getenv\(\'WORDUP_PORT\'\) --raw");
+            if(empty($this->site_url)){
+                WP_CLI::runcommand("config set WP_HOME \'".$this->server.":\'.getenv\(\'WORDUP_PORT\'\) --raw");
+                WP_CLI::runcommand("config set WP_SITEURL \'".$this->server.":\'.getenv\(\'WORDUP_PORT\'\) --raw");
+            }else{
+                WP_CLI::runcommand("config set WP_HOME ".$this->site_url);
+                WP_CLI::runcommand("config set WP_SITEURL ".$this->site_url);
+            }
             WP_CLI::runcommand('db import '.$sql_dump_path);
             
             WP_CLI::runcommand('rewrite flush');
@@ -467,6 +458,34 @@ class Wordup_Commands {
             }
         }
 
+    }
+
+    private function scaffold_src() {
+
+        if($this->scaffold){
+            //Check if .scaffold file exists and delete it 
+            if(is_file('/src/.scaffold')){
+                WP_CLI::launch('unlink /src/.scaffold');
+            }
+
+            if(Wordup_tools::is_dir_empty('/src')){
+
+                $internal_name = Wordup_tools::get_project_dirname($this->wp_package);
+                $internal_path = '/var/www/html/wp-content/'.$this->wp_package['type'].'/'.$internal_name;
+    
+                if($this->wp_package['type'] == 'themes'){
+                    WP_CLI::runcommand('scaffold _s '.$internal_name);
+                }else if($this->wp_package['type'] == 'plugins'){
+                    WP_CLI::runcommand('scaffold plugin '.$internal_name);
+                }
+
+                //Move all files to src and delete folder 
+                WP_CLI::launch('cp -r '.$internal_path.'/. /src/');
+                WP_CLI::launch('rm -r '.$internal_path);
+            }else{
+                WP_CLI::error( "Could not scaffold data, folder is not empty");
+            }
+        }
     }
 
 
