@@ -278,7 +278,8 @@ class Wordup_Commands {
         }else{
             WP_CLI::runcommand("config set WP_HOME ".$this->site_url);
             WP_CLI::runcommand("config set WP_SITEURL ".$this->site_url);
-            //WP_CLI::runcommand("config set _SERVER[\'HTTP_HOST\']  \'".parse_url($this->site_url, PHP_URL_HOST)."\' --raw --type=variable");
+            //This is kind of an hack. Because wordpress is doing crazy stuff with redirects
+            WP_CLI::runcommand("config set _SERVER[\'HTTP_HOST\']  \'".parse_url($this->site_url, PHP_URL_HOST)."\' --raw --type=variable");
         }
 
         // ------ Install Plugins -----------
@@ -342,7 +343,7 @@ class Wordup_Commands {
         }else{
             WP_CLI::runcommand("config set WP_HOME ".$this->site_url);
             WP_CLI::runcommand("config set WP_SITEURL ".$this->site_url);
-            //WP_CLI::runcommand("config set _SERVER[\'HTTP_HOST\']  \'".parse_url($this->site_url, PHP_URL_HOST)."\' --raw --type=variable");
+            WP_CLI::runcommand("config set _SERVER[\'HTTP_HOST\']  \'".parse_url($this->site_url, PHP_URL_HOST)."\' --raw --type=variable");
         }
         WP_CLI::runcommand('db import '.$sql_dump_path);
         
@@ -429,7 +430,7 @@ class Wordup_Commands {
             }else{
                 WP_CLI::runcommand("config set WP_HOME ".$this->site_url);
                 WP_CLI::runcommand("config set WP_SITEURL ".$this->site_url);
-                //WP_CLI::runcommand("config set _SERVER[\'HTTP_HOST\']  \'".parse_url($this->site_url, PHP_URL_HOST)."\' --raw --type=variable");
+                WP_CLI::runcommand("config set _SERVER[\'HTTP_HOST\']  \'".parse_url($this->site_url, PHP_URL_HOST)."\' --raw --type=variable");
             }
             WP_CLI::runcommand('db import '.$sql_dump_path);
             
