@@ -275,6 +275,8 @@ class Wordup_Commands {
         if(empty($this->site_url)){
             WP_CLI::runcommand("config set WP_HOME \'".$this->server.":\'.getenv\(\'WORDUP_PORT\'\) --raw");
             WP_CLI::runcommand("config set WP_SITEURL \'".$this->server.":\'.getenv\(\'WORDUP_PORT\'\) --raw");
+        }else{
+            WP_CLI::runcommand("config set _SERVER[\'HTTP_HOST\']  \'".parse_url($this->site_url, PHP_URL_HOST)."\' --raw --type=variable");
         }
 
         // ------ Install Plugins -----------
@@ -334,9 +336,11 @@ class Wordup_Commands {
         if(empty($this->site_url)){
             WP_CLI::runcommand("config set WP_HOME \'".$this->server.":\'.getenv\(\'WORDUP_PORT\'\) --raw");
             WP_CLI::runcommand("config set WP_SITEURL \'".$this->server.":\'.getenv\(\'WORDUP_PORT\'\) --raw");
+        
         }else{
             WP_CLI::runcommand("config set WP_HOME ".$this->site_url);
             WP_CLI::runcommand("config set WP_SITEURL ".$this->site_url);
+            WP_CLI::runcommand("config set _SERVER[\'HTTP_HOST\']  \'".parse_url($this->site_url, PHP_URL_HOST)."\' --raw --type=variable");
         }
         WP_CLI::runcommand('db import '.$sql_dump_path);
         
@@ -423,6 +427,7 @@ class Wordup_Commands {
             }else{
                 WP_CLI::runcommand("config set WP_HOME ".$this->site_url);
                 WP_CLI::runcommand("config set WP_SITEURL ".$this->site_url);
+                WP_CLI::runcommand("config set _SERVER[\'HTTP_HOST\']  \'".parse_url($this->site_url, PHP_URL_HOST)."\' --raw --type=variable");
             }
             WP_CLI::runcommand('db import '.$sql_dump_path);
             
