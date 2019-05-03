@@ -19,10 +19,12 @@ class Wordup_tools {
     public static function connect_src_with_wp($wp_package){
         //Connect src with wordpress
         WP_CLI::log('Connect your '.$wp_package['type'].' source code with WordPress');
-        WP_CLI::launch('ln -s /src /var/www/html/wp-content/'.$wp_package['type'].'/'.self::get_project_dirname($wp_package));
+
+        $wp_path = '/var/www/html/wp-content/'.$wp_package['type'];
+        WP_CLI::launch('ln -s /src '.$wp_path.'/'.self::get_project_dirname($wp_package));
         
         //Activate Plugin
-        if( $wp_package['type'] === 'plugins'){
+        if( $wp_package['type'] === 'plugins' && is_file($wp_path.'/'.$wp_package['slug'])){
             WP_CLI::runcommand('plugin activate '.$wp_package['slug']);
         }
     }
