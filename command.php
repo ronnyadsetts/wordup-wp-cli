@@ -272,6 +272,9 @@ class Wordup_Commands {
                     --admin_password="'.$installation_config['adminPassword'].'" \
                     --admin_email="'.$installation_config['adminEmail'].'" \
                     --skip-email');
+        
+        //Because its a development context, we set debug to true
+        WP_CLI::runcommand("config set set WP_DEBUG true --raw");
 
         // Only set the flexible port siteurl config, if there is no custom site_url
         if(empty($this->site_url)){
@@ -338,6 +341,9 @@ class Wordup_Commands {
         WP_CLI::runcommand('config set DB_USER wordpress');
         WP_CLI::runcommand('config set DB_PASSWORD wordpress');
         WP_CLI::runcommand('config set DB_HOST db:3306');
+        //Because its a development context, we set debug to true
+        WP_CLI::runcommand("config set set WP_DEBUG true --raw");
+
         if(empty($this->site_url)){
             WP_CLI::runcommand("config set WP_HOME \'".$this->server.":\'.getenv\(\'WORDUP_PORT\'\) --raw");
             WP_CLI::runcommand("config set WP_SITEURL \'".$this->server.":\'.getenv\(\'WORDUP_PORT\'\) --raw");
@@ -426,6 +432,8 @@ class Wordup_Commands {
             }
 
             WP_CLI::runcommand('config create --dbname=wordpress --dbuser=wordpress --dbpass=wordpress --dbhost=db:3306 --force');
+            //Because its a development context, we set debug to true
+            WP_CLI::runcommand("config set set WP_DEBUG true --raw");
             if(empty($this->site_url)){
                 WP_CLI::runcommand("config set WP_HOME \'".$this->server.":\'.getenv\(\'WORDUP_PORT\'\) --raw");
                 WP_CLI::runcommand("config set WP_SITEURL \'".$this->server.":\'.getenv\(\'WORDUP_PORT\'\) --raw");
