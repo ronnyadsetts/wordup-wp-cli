@@ -16,6 +16,11 @@ class Wordup_tools {
         return (count(scandir($dir)) == 2);
     }
 
+    public static function wp_package_path_exists($wp_package){
+        $project_path = '/var/www/html/wp-content/'.$wp_package['type'].'/'.self::get_project_dirname($wp_package);
+        return file_exists($project_path);
+    }
+
     public static function connect_src_with_wp($wp_package){
         //Connect src with wordpress
         WP_CLI::log('Connect your '.$wp_package['type'].' source code with WordPress');
@@ -86,6 +91,19 @@ class Wordup_Commands {
     public $server_port = '8000';
     public $site_url = FALSE;
     public $scaffold = FALSE;
+
+    public $wp_path = '';
+    public $tmp_path = '';
+
+    function __construct() {
+        //Set global paramaters more convenient
+        $this->tmp_path = WP_CLI\Utils\trailingslashit( WP_CLI\Utils\get_temp_dir() );
+
+        if ( ! defined( 'ABSPATH' ) ) {
+            WP_CLI::error( "Wordup could not find WordPress root path");
+        }
+        $this->wp_path = WP_CLI\Utils\trailingslashit( ABSPATH );
+    }
 
     /**
      * Installs the base WordPress dev stack
@@ -172,7 +190,7 @@ class Wordup_Commands {
      *
      *     wp wordup export base64configstring 
      *
-     * @when before_wp_load
+     * @when after_wp_load
      */
     public function export( $args, $assoc_args ){
         list( $config ) = $args;
@@ -182,6 +200,10 @@ class Wordup_Commands {
 
         $project_folder_name = Wordup_tools::get_project_dirname($this->wp_package);
 
+        //check if slug has not changed
+        if(!Wordup_tools::wp_package_path_exists($this->wp_package)){
+            WP_CLI::error( "You have changed the slug in package.json, please reinstall this project.");
+        }
 
         //Export Theme/plugin src
         if($export_type === 'src'){
@@ -199,6 +221,11 @@ class Wordup_Commands {
             }
 
             if($export_version){
+
+                //This is workaround, if for what ever reason there is already a tmp folder
+                if (file_exists('/tmp/'.$project_folder_name)) {
+                    WP_CLI::launch('rm -r /tmp/'.$project_folder_name);
+                }
 
                 WP_CLI::launch('mkdir /tmp/'.$project_folder_name);
                 WP_CLI::launch('cp -a /src/. /tmp/'.$project_folder_name);
@@ -220,6 +247,11 @@ class Wordup_Commands {
         if($export_type === 'installation'){
             $project_tmp_path = '/tmp/wordup-installation/wp-content/'.$this->wp_package['type'].'/'.$project_folder_name;
 
+            //This is workaround, if for what ever reason there is already a tmp folder
+            if (file_exists('/tmp/wordup-installation/')) {
+                WP_CLI::launch('rm -r /tmp/wordup-installation/');
+            }
+
             WP_CLI::launch('mkdir /tmp/wordup-installation/');
             WP_CLI::launch('cp -a /var/www/html/. /tmp/wordup-installation/');
 
@@ -234,11 +266,14 @@ class Wordup_Commands {
             WP_CLI::log('Write wordup-archive.json for WP-Version: '.$wp_version);
 
             //Move src back to destination, if available 
-            WP_CLI::launch('unlink '.$project_tmp_path);
-            WP_CLI::launch('mkdir '.$project_tmp_path);
+            if(!is_link($project_tmp_path)){
+                WP_CLI::error('There was an error in your docker file structure.');
+            }
+            unlink($project_tmp_path);
+            mkdir($project_tmp_path);
             WP_CLI::launch('cp -a /src/. '.$project_tmp_path);
-            
-            $filename =  !empty($assoc_args['filename']) ? $assoc_args['filename'] : 'installation-'.date('Y-m-d');
+
+            $filename = !empty($assoc_args['filename']) ? $assoc_args['filename'] : 'installation-'.date('Y-m-d');
 
             //Create archive
             WP_CLI::launch('cd /tmp/wordup-installation && tar czf /dist/'. $filename.'.tar.gz .');
