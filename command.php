@@ -200,9 +200,12 @@ class Wordup_Commands {
 
         $project_folder_name = Wordup_tools::get_project_dirname($this->wp_package);
 
-        //check if slug has not changed
-        if(!Wordup_tools::wp_package_path_exists($this->wp_package)){
-            WP_CLI::error( "You have changed the slug in package.json, please reinstall this project.");
+        //Create tmp folder 
+        if($export_type === 'src' || $export_type === 'installation'){
+            if (file_exists('/tmp/wordup-export/')) {
+                WP_CLI::launch('rm -r /tmp/wordup-export/');
+            }
+            mkdir('/tmp/wordup-export');
         }
 
         //Export Theme/plugin src
@@ -210,7 +213,7 @@ class Wordup_Commands {
 
             //If there is no .distignore create it 
             if(!is_file('/src/.distignore')){
-                file_put_contents('/src/.distignore', implode("\n",array('.distignore','.git','.gitignore')));
+                file_put_contents('/src/.distignore', implode("\n",array('.distignore','.git','.gitignore','node_modules')));
             }
 
             $export_version = FALSE;
@@ -221,16 +224,17 @@ class Wordup_Commands {
             }
 
             if($export_version){
+                $export_tmp = '/tmp/wordup-export/';
+                $final_zip = $project_folder_name.'-'.$export_version.'.zip';
 
-                //This is workaround, if for what ever reason there is already a tmp folder
-                if (file_exists('/tmp/'.$project_folder_name)) {
-                    WP_CLI::launch('rm -r /tmp/'.$project_folder_name);
-                }
+                WP_CLI::runcommand('dist-archive /src '.$export_tmp.'src.zip --format=zip');
+                WP_CLI::launch('unzip '.$export_tmp.'src.zip -d '.$export_tmp);
+                WP_CLI::launch('mv '.$export_tmp.'src '.$export_tmp.$project_folder_name);
+                WP_CLI::launch('cd '.$export_tmp.' && zip -r '.$final_zip.' '.$project_folder_name);
+                WP_CLI::launch('mv '.$export_tmp.$final_zip.' /dist/'.$final_zip);
+                WP_CLI::log('Move src.zip -> dist/'.$final_zip);
+                WP_CLI::launch('rm -r '.$export_tmp);
 
-                WP_CLI::launch('mkdir /tmp/'.$project_folder_name);
-                WP_CLI::launch('cp -a /src/. /tmp/'.$project_folder_name);
-                WP_CLI::runcommand('dist-archive /tmp/'.$project_folder_name.' /dist/'.$project_folder_name.'-'.$export_version.'.zip --format=zip');
-                WP_CLI::launch('rm -r /tmp/'.$project_folder_name);
             }else{
                 WP_CLI::error( "Could not read version of the exported project");
             }
@@ -245,39 +249,35 @@ class Wordup_Commands {
 
         //Export Installation
         if($export_type === 'installation'){
-            $project_tmp_path = '/tmp/wordup-installation/wp-content/'.$this->wp_package['type'].'/'.$project_folder_name;
 
-            //This is workaround, if for what ever reason there is already a tmp folder
-            if (file_exists('/tmp/wordup-installation/')) {
-                WP_CLI::launch('rm -r /tmp/wordup-installation/');
-            }
+            $export_tmp = '/tmp/wordup-export/';
+            $project_tmp_path = $export_tmp.'wp-content/'.$this->wp_package['type'].'/'.$project_folder_name;
 
-            WP_CLI::launch('mkdir /tmp/wordup-installation/');
-            WP_CLI::launch('cp -a /var/www/html/. /tmp/wordup-installation/');
+            WP_CLI::launch('cp -a /var/www/html/. '.$export_tmp);
 
             //Export Sql
             $sql_file = 'db-snapshot-'.time().'.sql';
-            WP_CLI::runcommand('db export /tmp/wordup-installation/'.$sql_file);
+            WP_CLI::runcommand('db export '.$export_tmp.$sql_file);
 
             //Create wordup-archive 
             $wp_version = WP_CLI::runcommand('core version', array('return'=>true));
             $wordup_archive_params= Wordup_tools::create_wordup_archive($wp_version, array('db'=>$sql_file));
-            file_put_contents('/tmp/wordup-installation/wordup-archive.json', json_encode($wordup_archive_params, JSON_PRETTY_PRINT));
+            file_put_contents($export_tmp.'wordup-archive.json', json_encode($wordup_archive_params, JSON_PRETTY_PRINT));
             WP_CLI::log('Write wordup-archive.json for WP-Version: '.$wp_version);
 
-            //Move src back to destination, if available 
-            if(!is_link($project_tmp_path)){
-                WP_CLI::error('There was an error in your docker file structure.');
-            }
-            unlink($project_tmp_path);
-            mkdir($project_tmp_path);
-            WP_CLI::launch('cp -a /src/. '.$project_tmp_path);
+            //---- Export src to wp-content with dist-archive  ----
+            unlink($project_tmp_path);  //Unlink symlink
+
+            WP_CLI::runcommand('dist-archive /src '.$export_tmp.'src.zip --format=zip', array('return'=>true));
+            WP_CLI::launch('unzip '.$export_tmp.'src.zip -d '.$export_tmp);
+            WP_CLI::launch('mv '.$export_tmp.'src '.$project_tmp_path);
+            unlink($export_tmp.'src.zip');
 
             $filename = !empty($assoc_args['filename']) ? $assoc_args['filename'] : 'installation-'.date('Y-m-d');
 
             //Create archive
-            WP_CLI::launch('cd /tmp/wordup-installation && tar czf /dist/'. $filename.'.tar.gz .');
-            WP_CLI::launch('rm -r /tmp/wordup-installation');
+            WP_CLI::launch('cd '.$export_tmp.' && tar czf /dist/'. $filename.'.tar.gz .');
+            WP_CLI::launch('rm -r '.$export_tmp);
         }
 
         WP_CLI::success( "Successfully exported $export_type" );
