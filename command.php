@@ -201,6 +201,7 @@ class Wordup_Commands {
         $project_folder_name = Wordup_tools::get_project_dirname($this->wp_package);
 
         //Create tmp folder 
+        $export_tmp = '/tmp/wordup-export/';
         if($export_type === 'src' || $export_type === 'installation'){
             if (file_exists('/tmp/wordup-export/')) {
                 WP_CLI::launch('rm -r /tmp/wordup-export/');
@@ -224,7 +225,6 @@ class Wordup_Commands {
             }
 
             if($export_version){
-                $export_tmp = '/tmp/wordup-export/';
                 $final_zip = $project_folder_name.'-'.$export_version.'.zip';
 
                 WP_CLI::runcommand('dist-archive /src '.$export_tmp.'src.zip --format=zip');
@@ -250,7 +250,6 @@ class Wordup_Commands {
         //Export Installation
         if($export_type === 'installation'){
 
-            $export_tmp = '/tmp/wordup-export/';
             $project_tmp_path = $export_tmp.'wp-content/'.$this->wp_package['type'].'/'.$project_folder_name;
 
             WP_CLI::launch('cp -a /var/www/html/. '.$export_tmp);
