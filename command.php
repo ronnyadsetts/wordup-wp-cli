@@ -263,7 +263,7 @@ class Wordup_Commands {
             $wp_version = WP_CLI::runcommand('core version', array('return'=>true));
             $wordup_archive_params= Wordup_tools::create_wordup_archive($wp_version, array('db'=>$sql_file));
             file_put_contents($export_tmp.'wordup-archive.json', json_encode($wordup_archive_params, JSON_PRETTY_PRINT));
-            WP_CLI::log('Write wordup-archive.json for WP-Version: '.$wp_version);
+            WP_CLI::log('Writing wordup-archive.json for WP-Version: '.$wp_version);
 
             //---- Export src to wp-content with dist-archive  ----
             unlink($project_tmp_path);  //Unlink symlink
