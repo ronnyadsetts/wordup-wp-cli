@@ -227,12 +227,12 @@ class Wordup_Commands {
             if($export_version){
                 $final_zip = $project_folder_name.'-'.$export_version.'.zip';
 
-                WP_CLI::runcommand('dist-archive /src '.$export_tmp.'src.zip --format=zip');
-                WP_CLI::launch('unzip '.$export_tmp.'src.zip -d '.$export_tmp);
+                WP_CLI::runcommand('dist-archive /src '.$export_tmp.'src.tar.gz --format=targz');
+                WP_CLI::launch('tar -xvf '.$export_tmp.'src.tar.gz -C '.$export_tmp);
                 WP_CLI::launch('mv '.$export_tmp.'src '.$export_tmp.$project_folder_name);
                 WP_CLI::launch('cd '.$export_tmp.' && zip -r '.$final_zip.' '.$project_folder_name);
                 WP_CLI::launch('mv '.$export_tmp.$final_zip.' /dist/'.$final_zip);
-                WP_CLI::log('Move src.zip -> dist/'.$final_zip);
+                WP_CLI::log('Transform src.tar.gz -> dist/'.$final_zip);
                 WP_CLI::launch('rm -r '.$export_tmp);
 
             }else{
@@ -268,10 +268,10 @@ class Wordup_Commands {
             //---- Export src to wp-content with dist-archive  ----
             unlink($project_tmp_path);  //Unlink symlink
 
-            WP_CLI::runcommand('dist-archive /src '.$export_tmp.'src.zip --format=zip', array('return'=>true));
-            WP_CLI::launch('unzip '.$export_tmp.'src.zip -d '.$export_tmp);
+            WP_CLI::runcommand('dist-archive /src '.$export_tmp.'src.tar.gz --format=targz', array('return'=>true));
+            WP_CLI::launch('tar -xvf '.$export_tmp.'src.tar.gz -C '.$export_tmp);
             WP_CLI::launch('mv '.$export_tmp.'src '.$project_tmp_path);
-            unlink($export_tmp.'src.zip');
+            unlink($export_tmp.'src.tar.gz');
 
             $filename = !empty($assoc_args['filename']) ? $assoc_args['filename'] : 'installation-'.date('Y-m-d');
 
