@@ -227,7 +227,7 @@ class Wordup_Commands {
             if($export_version){
                 $final_zip = $project_folder_name.'-'.$export_version.'.zip';
 
-                WP_CLI::runcommand('dist-archive /src '.$export_tmp.'src.tar.gz --format=targz');
+                WP_CLI::runcommand('dist-archive /src '.$export_tmp.'src.zip --format=zip');
                 WP_CLI::launch('unzip '.$export_tmp.'src.zip -d '.$export_tmp);
                 WP_CLI::launch('mv '.$export_tmp.'src '.$export_tmp.$project_folder_name);
                 WP_CLI::launch('cd '.$export_tmp.' && zip -r '.$final_zip.' '.$project_folder_name);
