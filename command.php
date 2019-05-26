@@ -255,8 +255,9 @@ class Wordup_Commands {
             WP_CLI::launch('cp -a /var/www/html/. '.$export_tmp);
 
             //Export Sql
+            WP_CLI::log('Creating DB snapshot ...');
             $sql_file = 'db-snapshot-'.time().'.sql';
-            WP_CLI::runcommand('db export '.$export_tmp.$sql_file);
+            WP_CLI::runcommand('db export '.$export_tmp.$sql_file, array('return'=>true));
 
             //Create wordup-archive 
             $wp_version = WP_CLI::runcommand('core version', array('return'=>true));
@@ -275,6 +276,7 @@ class Wordup_Commands {
             $filename = !empty($assoc_args['filename']) ? $assoc_args['filename'] : 'installation-'.date('Y-m-d');
 
             //Create archive
+            WP_CLI::log('Creating installation archive ...');
             WP_CLI::launch('cd '.$export_tmp.' && tar czf /dist/'. $filename.'.tar.gz .');
             WP_CLI::launch('rm -r '.$export_tmp);
         }
