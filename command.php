@@ -81,6 +81,25 @@ class Wordup_tools {
         $sig =  base64_encode(hash_hmac('sha256', $string_to_sign, $private_key, TRUE));
         return $url.'?rest_route='.$route.'&signature='.rawurlencode($sig).'&expires='.$expires;
     }
+
+    public static function overwrite_style_css($path, $wp_package){
+        $css = array(
+            "/*",
+            "Theme Name: ".$wp_package['projectName'],
+            "Theme URI: THEME SITE HERE",
+            "Author: YOUR NAME HERE",
+            "Author URI: YOUR SITE HERE",
+            "Description: THEME DESCRIPTION HERE",
+            "Version: 0.1.0",
+            "License: GNU General Public License v2 or later",
+            "License URI: http://www.gnu.org/licenses/gpl-2.0.html",
+            "Tags: YOUR TAGS HERE",
+            "Text Domain: ".self::get_project_dirname($wp_package),
+            "*/"
+        );
+        file_put_contents(WP_CLI\Utils\trailingslashit($path).'style.css', implode("\n",$css));
+        WP_CLI::log("Overwrite style.css file");
+    }
 }
 
 
@@ -122,8 +141,8 @@ class Wordup_Commands {
      * [--private-key=<private-key>]
      * : An optional private key 
      * 
-     * [--scaffold]
-     * : Scaffold project src data
+     * [--scaffold[=<value>]]
+     * : Scaffold project src data. Optional the boilerplate project can be set.
      * 
      * [--siteurl=<siteurl>]
      * : A custom siteurl for the WordPress installation
@@ -397,17 +416,18 @@ class Wordup_Commands {
         WP_CLI::launch('unlink '.$sql_dump_path);
 
         //Set .htaccess to a default wordpress
-        $htaccess = "# BEGIN WordPress\n
-                <IfModule mod_rewrite.c>\n
-                RewriteEngine On\n
-                RewriteBase /\n
-                RewriteRule ^index\.php$ - [L]\n
-                RewriteCond %{REQUEST_FILENAME} !-f\n
-                RewriteCond %{REQUEST_FILENAME} !-d\n
-                RewriteRule . /index.php [L]\n
-                </IfModule>\n
-                # END WordPress";
-        file_put_contents('/var/www/html/.htaccess', $htaccess);
+        $htaccess = array("# BEGIN WordPress",
+                "<IfModule mod_rewrite.c>",
+                "RewriteEngine On",
+                "RewriteBase /",
+                "RewriteRule ^index\.php$ - [L]",
+                "RewriteCond %{REQUEST_FILENAME} !-f",
+                "RewriteCond %{REQUEST_FILENAME} !-d",
+                "RewriteRule . /index.php [L]",
+                "</IfModule>",
+                "# END WordPress"
+        );
+        file_put_contents('/var/www/html/.htaccess', implode("\n",$htaccess));
 
         $this->delete_installed_project();
         $this->scaffold_src();
@@ -530,9 +550,15 @@ class Wordup_Commands {
 
                 $internal_name = Wordup_tools::get_project_dirname($this->wp_package);
                 $internal_path = '/var/www/html/wp-content/'.$this->wp_package['type'].'/'.$internal_name;
-    
+                
                 if($this->wp_package['type'] == 'themes'){
-                    WP_CLI::runcommand('scaffold _s '.$internal_name);
+
+                    if($this->scaffold === 'understrap'){
+                        Wordup_tools::extract_remote_zip_to_wp_content('https://github.com/understrap/understrap/archive/master.zip', $internal_name, 'themes');
+                        Wordup_tools::overwrite_style_css($internal_path, $this->wp_package);
+                    }else{
+                        WP_CLI::runcommand('scaffold _s '.$internal_name);
+                    }
                 }else if($this->wp_package['type'] == 'plugins'){
                     WP_CLI::runcommand('scaffold plugin '.$internal_name);
                 }
