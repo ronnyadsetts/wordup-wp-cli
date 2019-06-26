@@ -228,7 +228,7 @@ class Wordup_Commands {
         //Create tmp folder 
         $export_tmp = '/tmp/wordup-export/';
         if($export_type === 'src' || $export_type === 'installation'){
-            if(Wordup_tools::wp_package_path_exists($this->config, TRUE)){
+            if(!Wordup_tools::wp_package_path_exists($this->config, TRUE)){
                 WP_CLI::error("Your project slug doesn't correspond with your file structure.");
             }
 
