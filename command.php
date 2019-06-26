@@ -16,8 +16,12 @@ class Wordup_tools {
         return (count(scandir($dir)) == 2);
     }
 
-    public static function wp_package_path_exists($config){
-        $project_path = '/var/www/html/wp-content/'.$config['type'].'/'.self::get_project_dirname($config);
+    public static function wp_package_path_exists($config, $check_slug=FALSE){
+        if(!$check_slug){
+            $project_path = '/var/www/html/wp-content/'.$config['type'].'/'.self::get_project_dirname($config);
+        }else{
+            $project_path = '/var/www/html/wp-content/'.$config['type'].'/'.$config['slug'];
+        }
         return file_exists($project_path);
     }
 
@@ -224,6 +228,10 @@ class Wordup_Commands {
         //Create tmp folder 
         $export_tmp = '/tmp/wordup-export/';
         if($export_type === 'src' || $export_type === 'installation'){
+            if(Wordup_tools::wp_package_path_exists($this->config, TRUE)){
+                WP_CLI::error("Your project slug doesn't correspond with your file structure.");
+            }
+
             if (file_exists('/tmp/wordup-export/')) {
                 WP_CLI::launch('rm -r /tmp/wordup-export/');
             }
