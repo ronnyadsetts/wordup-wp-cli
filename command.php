@@ -4,11 +4,11 @@ class Wordup_tools {
 
     protected $package_types = array('themes', 'plugins');
 
-    public static function get_project_dirname($wp_package){
-        if($wp_package['type'] === 'plugins'){
-            return dirname($wp_package['slug']);
+    public static function get_project_dirname($config){
+        if($config['type'] === 'plugins'){
+            return dirname($config['slug']);
         }
-        return $wp_package['slug'];
+        return $config['slug'];
     }
 
     public static function is_dir_empty($dir){
@@ -16,21 +16,21 @@ class Wordup_tools {
         return (count(scandir($dir)) == 2);
     }
 
-    public static function wp_package_path_exists($wp_package){
-        $project_path = '/var/www/html/wp-content/'.$wp_package['type'].'/'.self::get_project_dirname($wp_package);
+    public static function wp_package_path_exists($config){
+        $project_path = '/var/www/html/wp-content/'.$config['type'].'/'.self::get_project_dirname($config);
         return file_exists($project_path);
     }
 
-    public static function connect_src_with_wp($wp_package){
+    public static function connect_src_with_wp($config){
         //Connect src with wordpress
-        WP_CLI::log('Connect your '.$wp_package['type'].' source code with WordPress');
+        WP_CLI::log('Connect your '.$config['type'].' source code with WordPress');
 
-        $wp_path = '/var/www/html/wp-content/'.$wp_package['type'];
-        WP_CLI::launch('ln -s /src '.$wp_path.'/'.self::get_project_dirname($wp_package));
+        $wp_path = '/var/www/html/wp-content/'.$config['type'];
+        WP_CLI::launch('ln -s /src '.$wp_path.'/'.self::get_project_dirname($config));
         
         //Activate Plugin
-        if( $wp_package['type'] === 'plugins' && is_file($wp_path.'/'.$wp_package['slug'])){
-            WP_CLI::runcommand('plugin activate '.$wp_package['slug']);
+        if( $config['type'] === 'plugins' && is_file($wp_path.'/'.$config['slug'])){
+            WP_CLI::runcommand('plugin activate '.$config['slug']);
         }
     }
 
@@ -82,10 +82,10 @@ class Wordup_tools {
         return $url.'?rest_route='.$route.'&signature='.rawurlencode($sig).'&expires='.$expires;
     }
 
-    public static function overwrite_style_css($path, $wp_package){
+    public static function overwrite_style_css($path, $config){
         $css = array(
             "/*",
-            "Theme Name: ".$wp_package['projectName'],
+            "Theme Name: ".$config['projectName'],
             "Theme URI: THEME SITE HERE",
             "Author: YOUR NAME HERE",
             "Author URI: YOUR SITE HERE",
@@ -94,7 +94,7 @@ class Wordup_tools {
             "License: GNU General Public License v2 or later",
             "License URI: http://www.gnu.org/licenses/gpl-2.0.html",
             "Tags: YOUR TAGS HERE",
-            "Text Domain: ".self::get_project_dirname($wp_package),
+            "Text Domain: ".self::get_project_dirname($config),
             "*/"
         );
         file_put_contents(WP_CLI\Utils\trailingslashit($path).'style.css', implode("\n",$css));
@@ -105,12 +105,14 @@ class Wordup_tools {
 
 class Wordup_Commands {
 
-    public $wp_package;
+    public $config;
     public $server = 'http://localhost';
     public $server_port = '8000';
     public $site_url = FALSE;
     public $scaffold = FALSE;
+    public $user_data = FALSE;
 
+    public $wordup_folder = '/wordup';
     public $wp_path = '';
     public $tmp_path = '';
 
@@ -179,7 +181,7 @@ class Wordup_Commands {
             $this->install_from_scratch();
         }
 
-        Wordup_tools::connect_src_with_wp($this->wp_package);
+        Wordup_tools::connect_src_with_wp($this->config);
 
         WP_CLI::success( "WordPress development stack successfully installed under $this->server:$this->server_port" );
     }
@@ -217,7 +219,7 @@ class Wordup_Commands {
 
         $export_type = $assoc_args['type'];
 
-        $project_folder_name = Wordup_tools::get_project_dirname($this->wp_package);
+        $project_folder_name = Wordup_tools::get_project_dirname($this->config);
 
         //Create tmp folder 
         $export_tmp = '/tmp/wordup-export/';
@@ -237,10 +239,10 @@ class Wordup_Commands {
             }
 
             $export_version = FALSE;
-            if($this->wp_package['type'] === 'themes'){
-                $export_version = WP_CLI::runcommand('theme get '.$this->wp_package['slug'].' --field=version', array('return' => true));
-            }else if($this->wp_package['type'] === 'plugins'){
-                $export_version = WP_CLI::runcommand('plugin get '.$this->wp_package['slug'].' --field=version', array('return' => true));
+            if($this->config['type'] === 'themes'){
+                $export_version = WP_CLI::runcommand('theme get '.$this->config['slug'].' --field=version', array('return' => true));
+            }else if($this->config['type'] === 'plugins'){
+                $export_version = WP_CLI::runcommand('plugin get '.$this->config['slug'].' --field=version', array('return' => true));
             }
 
             if($export_version){
@@ -269,7 +271,7 @@ class Wordup_Commands {
         //Export Installation
         if($export_type === 'installation'){
 
-            $project_tmp_path = $export_tmp.'wp-content/'.$this->wp_package['type'].'/'.$project_folder_name;
+            $project_tmp_path = $export_tmp.'wp-content/'.$this->config['type'].'/'.$project_folder_name;
 
             WP_CLI::launch('cp -a /var/www/html/. '.$export_tmp);
 
@@ -312,20 +314,23 @@ class Wordup_Commands {
         }else{
             WP_CLI::log( "Parsed wordup package.json with slug: ".$config_json['slug'] );
         }
-        $this->wp_package  = $config_json;
+        $this->config  = $config_json;
     }
 
     private function install_from_scratch() {
-        $installation_config = $this->wp_package['wpInstall'];
+        $installation_config = $this->config['wpInstall'];
+
+        $all_users = $installation_config['users'];
+        $admin = $all_users[0]; // The first user is always the admin
 
         //Install basic stuff
         WP_CLI::runcommand('core install  \
                     --path="/var/www/html" \
                     --url="'.(!empty($this->site_url) ? $this->site_url : $this->server.':'.$this->server_port).'" \
                     --title="'.$installation_config['title'].'" \
-                    --admin_user="'.$installation_config['adminUser'].'" \
-                    --admin_password="'.$installation_config['adminPassword'].'" \
-                    --admin_email="'.$installation_config['adminEmail'].'" \
+                    --admin_user="'.$admin['name'].'" \
+                    --admin_password="'.$admin['password'].'" \
+                    --admin_email="'.$admin['email'].'" \
                     --skip-email');
         
         //Because its a development context, we set debug to true
@@ -340,6 +345,16 @@ class Wordup_Commands {
             WP_CLI::runcommand("config set WP_SITEURL ".$this->site_url);
             //This is kind of an hack. Because wordpress is doing crazy stuff with redirects
             WP_CLI::runcommand("config set _SERVER[\'HTTP_HOST\']  \'".parse_url($this->site_url, PHP_URL_HOST)."\' --raw --type=variable");
+        }
+
+        // ------ Install custom language ------
+        if(!empty($installation_config['language']) && $installation_config['language'] !== 'en_US'){
+            WP_CLI::runcommand("language core install ".$installation_config['language']." --activate");
+        }
+
+        // ------ Check which version ------
+        if(!empty($installation_config['version'])){
+            WP_CLI::runcommand("core update --force ".($installation_config['version'] !== 'latest' ? "version=".$installation_config['version'] : ''));
         }
 
         // ------ Install Plugins -----------
@@ -365,7 +380,12 @@ class Wordup_Commands {
             }
         }
 
+        // ------- Scaffold source code ------
         $this->scaffold_src();
+
+        // ------- Import data like media, posts, pages -----
+        $this->import_data();
+
     }
 
     private function install_from_archive($path) {
@@ -521,18 +541,18 @@ class Wordup_Commands {
     //Check if current sourc code from plugin/theme is installed, and delete it
     private function delete_installed_project(){
 
-        if($this->wp_package['type'] === 'themes'){
-            $is_installed = WP_CLI::runcommand('theme is-installed '.$this->wp_package['slug'], array('return'=>'return_code','exit_error'=>false));
+        if($this->config['type'] === 'themes'){
+            $is_installed = WP_CLI::runcommand('theme is-installed '.$this->config['slug'], array('return'=>'return_code','exit_error'=>false));
             if(intval($is_installed) === 0){
                 WP_CLI::log('Delete duplicate theme from source');
-                WP_CLI::runcommand('theme delete '.$this->wp_package['slug']);
+                WP_CLI::runcommand('theme delete '.$this->config['slug']);
             }
-        }else if($this->wp_package['type'] === 'plugins'){
-            $is_installed = WP_CLI::runcommand('plugin is-installed '.$this->wp_package['slug'], array('return'=>'return_code','exit_error'=>false));
+        }else if($this->config['type'] === 'plugins'){
+            $is_installed = WP_CLI::runcommand('plugin is-installed '.$this->config['slug'], array('return'=>'return_code','exit_error'=>false));
 
             if(intval($is_installed) === 0){
                 WP_CLI::log('Delete duplicate plugin from source');
-                WP_CLI::runcommand('plugin delete '.$this->wp_package['slug']);
+                WP_CLI::runcommand('plugin delete '.$this->config['slug']);
             }
         }
 
@@ -548,18 +568,18 @@ class Wordup_Commands {
 
             if(Wordup_tools::is_dir_empty('/src')){
 
-                $internal_name = Wordup_tools::get_project_dirname($this->wp_package);
-                $internal_path = '/var/www/html/wp-content/'.$this->wp_package['type'].'/'.$internal_name;
+                $internal_name = Wordup_tools::get_project_dirname($this->config);
+                $internal_path = '/var/www/html/wp-content/'.$this->config['type'].'/'.$internal_name;
                 
-                if($this->wp_package['type'] == 'themes'){
+                if($this->config['type'] == 'themes'){
 
                     if($this->scaffold === 'understrap'){
                         Wordup_tools::extract_remote_zip_to_wp_content('https://github.com/understrap/understrap/archive/master.zip', $internal_name, 'themes');
-                        Wordup_tools::overwrite_style_css($internal_path, $this->wp_package);
+                        Wordup_tools::overwrite_style_css($internal_path, $this->config);
                     }else{
                         WP_CLI::runcommand('scaffold _s '.$internal_name);
                     }
-                }else if($this->wp_package['type'] == 'plugins'){
+                }else if($this->config['type'] == 'plugins'){
                     WP_CLI::runcommand('scaffold plugin '.$internal_name);
                 }
 
@@ -570,6 +590,191 @@ class Wordup_Commands {
                 WP_CLI::error( "Could not scaffold data, folder is not empty");
             }
         }
+    }
+
+    private function import_data($reset=FALSE) {
+        $parser = new Mni\FrontYAML\Parser();
+
+        $added_users = array();
+        $added_media = array();
+        $added_posts = array();
+        $added_menus = array();
+        $added_categories = array();
+
+        $wpInstall = $this->config['wpInstall'];
+
+        // Import User Roles & users
+        if(!empty($wpInstall['roles']) && is_array($wpInstall['roles'])){
+            foreach($wpInstall['roles'] as $key => $role){
+
+                WP_CLI::runcommand('role create '.$role['key'].' '.escapeshellarg($role['name']).(!empty($role['clone_from']) ? ' --clone='.$role['clone_from'] : ''), array('exit_error'=>false));   
+                
+                if(!empty($role['capabilities']) && is_array($role['capabilities'])){
+                    foreach($role['capabilities'] as $cap){
+                        WP_CLI::runcommand('cap add '.$role['key'].' '.$cap, array('exit_error'=>false));   
+                    }
+                }
+            }
+        }
+
+        // Import users
+        $users = $wpInstall['users'];
+        foreach($users as $key => $user){
+            //The first user is always the admin, and was created with the install
+            if($key !== 0){                
+                $id = WP_CLI::runcommand('user create '.escapeshellarg($user['name']).' '.$user['email'].' --role='.$user['role'].' --user_pass='.escapeshellarg($user['password']).' --porcelain', array('return' => true, 'exit_error'=>false));   
+                if(!empty($id)){
+                    $added_users[$id] = $user['name']; 
+                }
+            }
+        }
+        
+
+        // Import media files
+        $media_folder = WP_CLI\Utils\trailingslashit($this->wordup_folder).'media';
+        $added_media = array();
+        if(is_readable($media_folder)){
+            $media_files = array_diff(scandir($media_folder), array('..', '.'));
+            foreach($media_files as $file){
+                $id = WP_CLI::runcommand('media import '.WP_CLI\Utils\trailingslashit($media_folder).$file.' --porcelain --user=1', array('return' => true));
+                $added_media[$id] = $file;
+            }
+            if(count($added_media) > 0){
+                WP_CLI::log('Successfully added media '.count($added_media).' file(s)');
+            }
+        }
+        
+        // Import pages and posts
+        $post_types = array('post','page');
+        foreach($post_types as $post_type){
+            $post_folder = WP_CLI\Utils\trailingslashit($this->wordup_folder).$post_type;
+            if(is_readable($post_folder)){
+                $post_type_ids = array(); //Just the added post type ids for each post_type
+
+                $post_files = array_diff(scandir($post_folder), array('..', '.'));
+                rsort($post_files);
+                
+                //if there are custom posts, delete the default ones first
+                if(count($post_files) > 0){
+                    $old_post_ids = WP_CLI::runcommand("post list --post_type=".$post_type." --format=ids", array('return' => true));
+                    WP_CLI::runcommand("post delete ".$old_post_ids.(($reset === TRUE) ? " --force" : ""));
+                }
+
+                //Extract all data
+                foreach($post_files as $key => $file){
+
+                    $content_tmp = $this->tmp_path.uniqid();
+                    $document = $parser->parse(file_get_contents(WP_CLI\Utils\trailingslashit($post_folder).$file));
+                    
+                    $options = $document->getYAML();
+                    $post_content = $document->getContent();
+
+                    if(!$options || !$post_content || !array_key_exists('title', $options)){
+                        continue;
+                    }
+
+                    //Set post status
+                    $post_status = !empty($options['status']) ? $options['status'] : 'publish';
+
+                    //Check if post has parent item
+                    $prev_id = $key-1;
+                    $post_parent = 0;
+                    $prev_filename = ($prev_id >= 0) ? pathinfo($post_files[$prev_id], PATHINFO_FILENAME) : '';
+                    if($post_type !== 'post' && !empty($prev_filename) && strpos($file, $prev_filename.'--') !== FALSE){
+                        if(!empty($post_type_ids)){
+                            $post_parent = $post_type_ids[$prev_id];
+                        }
+                    }
+
+                    //Check if a featured image should be set for this post
+                    $add_to_cmd = '';
+                    if(!empty($options['featured_image'])){
+                        $attachment_id = array_search(trim($options['featured_image']), $added_media);
+                        if($attachment_id){
+                            $add_to_cmd .= '--_thumbnail_id='.$attachment_id;
+                        }
+                    }
+
+                    //Check if tags should be added
+                    if($post_type === 'post'){
+                        if(!empty($options['tags'])){
+                            $items = explode(";", $options['tags']);
+                            if(count($items) > 0){
+                                $items = array_map('trim',$items);
+                                $add_to_cmd .= ' --tags_input='.escapeshellarg(implode(",", $items));
+                            }
+                        }
+                    }
+
+                    //Extract categories
+                    if($post_type === 'post' && !empty($options['category'])){
+                        $categories = explode(";", $options['category']);
+
+                        if(!empty($categories)){
+                            $post_categories = array_map('trim', $categories);
+                            $add_cat_ids = array();
+                            foreach($post_categories as $cat){
+                                //Check if new category has to be created
+                                if(!in_array($cat, $added_categories)){
+                                    $cat_id = WP_CLI::runcommand("term create category ".escapeshellarg($cat)." --porcelain", array('return' => true));
+                                    $added_categories[$cat_id] = $cat;
+                                }else{
+                                    $cat_id = array_search($cat, $added_categories);
+                                }
+                                //add category to post
+                                $add_cat_ids[] = $cat_id;
+                            }
+                            $add_to_cmd .= ' --post_category='.implode(",", $add_cat_ids);
+                        }
+                    }
+
+
+                    //Set auther according to settings, default is first user
+                    $author = 1;
+                    if(!empty($options['author'])){
+                        $author_id = array_search($options['author'], $added_users);
+                        if($author_id){
+                            $author = $author_id;
+                        }
+                    }
+
+
+                    //Save content in tmp file
+                    file_put_contents($content_tmp, $post_content);
+                    $id = WP_CLI::runcommand("post create  \
+                            --post_type=".$post_type."  \
+                            --post_title=".escapeshellarg($options['title'])." \
+                            --post_author=".$author."  \
+                            --post_status=".$post_status." \
+                            --post_parent=".$post_parent." \
+                            --porcelain ".$add_to_cmd." ".$content_tmp, array('return' => true));
+                    $added_posts[$id] = array('title'=>$options['title']);
+                    $post_type_ids[] = $id;
+
+                    unlink($content_tmp);
+
+                    //Finally check if menus have to be added
+                    if(!empty($options['menu'])){
+                        $menus = explode(";", $options['menu']);
+                        if(!empty($menus)){
+                            $post_menus = array_map('trim', $menus);
+                            foreach($post_menus as $menu){
+                                //Check if new menu has to be created
+                                if(!in_array($menu, $added_menus)){
+                                    $menu_id = WP_CLI::runcommand("menu create ".escapeshellarg($menu)." --porcelain", array('return' => true));
+                                    $added_menus[$menu_id] = $menu;
+                                }else{
+                                    $menu_id = array_search($menu, $added_menus);
+                                }
+                                //add post to menu
+                                WP_CLI::runcommand("menu item add-post ".$menu_id." ".$id." --porcelain", array('return' => true));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
     }
 
 
