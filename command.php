@@ -228,22 +228,24 @@ class Wordup_Commands {
         //Create tmp folder 
         $export_tmp = '/tmp/wordup-export/';
         if($export_type === 'src' || $export_type === 'installation'){
-            if(!Wordup_tools::wp_package_path_exists($this->config, TRUE)){
-                WP_CLI::error("Your project slug doesn't correspond with your file structure.");
-            }
 
             if (file_exists('/tmp/wordup-export/')) {
                 WP_CLI::launch('rm -r /tmp/wordup-export/');
             }
             mkdir('/tmp/wordup-export');
+
+            //If there is no .distignore create it 
+            if(!is_file('/src/.distignore')){
+                file_put_contents('/src/.distignore', implode("\n",array('.distignore','.git','.gitignore','node_modules')));
+            }
         }
 
         //Export Theme/plugin src
         if($export_type === 'src'){
 
-            //If there is no .distignore create it 
-            if(!is_file('/src/.distignore')){
-                file_put_contents('/src/.distignore', implode("\n",array('.distignore','.git','.gitignore','node_modules')));
+            //Only execute if project slug exists
+            if(!Wordup_tools::wp_package_path_exists($this->config, TRUE)){
+                WP_CLI::error("Your project slug doesn't correspond with your file structure.");
             }
 
             $export_version = FALSE;
@@ -301,7 +303,7 @@ class Wordup_Commands {
             WP_CLI::launch('tar -xvf '.$export_tmp.'src.tar.gz -C '.$export_tmp);
             WP_CLI::launch('mv '.$export_tmp.'src '.$project_tmp_path);
             unlink($export_tmp.'src.tar.gz');
-
+            
             $filename = !empty($assoc_args['filename']) ? $assoc_args['filename'] : 'installation-'.date('Y-m-d');
 
             //Create archive
