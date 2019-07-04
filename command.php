@@ -2,7 +2,7 @@
 
 class Wordup_tools {
 
-    protected $package_types = array('themes', 'plugins');
+    protected $package_types = array('themes', 'plugins','installation');
 
     public static function get_project_dirname($config){
         if($config['type'] === 'plugins'){
@@ -17,25 +17,45 @@ class Wordup_tools {
     }
 
     public static function wp_package_path_exists($config, $check_slug=FALSE){
-        if(!$check_slug){
-            $project_path = '/var/www/html/wp-content/'.$config['type'].'/'.self::get_project_dirname($config);
+
+        if($config['type'] === 'installation'){
+            $project_path = '/var/www/html/wp-content';
         }else{
-            $project_path = '/var/www/html/wp-content/'.$config['type'].'/'.$config['slug'];
+            if(!$check_slug){
+                $project_path = '/var/www/html/wp-content/'.$config['type'].'/'.self::get_project_dirname($config);
+            }else{
+                $project_path = '/var/www/html/wp-content/'.$config['type'].'/'.$config['slug'];
+            }
         }
         return file_exists($project_path);
     }
 
     public static function connect_src_with_wp($config){
-        //Connect src with wordpress
-        WP_CLI::log('Connect your '.$config['type'].' source code with WordPress');
 
-        $wp_path = '/var/www/html/wp-content/'.$config['type'];
-        WP_CLI::launch('ln -s /src '.$wp_path.'/'.self::get_project_dirname($config));
-        
-        //Activate Plugin
-        if( $config['type'] === 'plugins' && is_file($wp_path.'/'.$config['slug'])){
-            WP_CLI::runcommand('plugin activate '.$config['slug']);
+        if($config['type'] === 'installation'){
+            WP_CLI::log('Connect WordPress installation');
+            if(Wordup_tools::is_dir_empty('/src')){
+                WP_CLI::log('Use default wp-content WordPress folder');
+                WP_CLI::launch('cp -r /var/www/html/wp-content/. /src/');
+            }
+            WP_CLI::launch('rm -r /var/www/html/wp-content');
+            WP_CLI::launch('ln -s /src /var/www/html/wp-content');
+
+        }else{
+
+            //Connect src with wordpress
+            WP_CLI::log('Connect your '.$config['type'].' source code with WordPress');
+
+            $wp_path = '/var/www/html/wp-content/'.$config['type'];
+            WP_CLI::launch('ln -s /src '.$wp_path.'/'.self::get_project_dirname($config));
+            
+            //Activate Plugin
+            if( $config['type'] === 'plugins' && self::wp_package_path_exists($config, TRUE)){
+                WP_CLI::runcommand('plugin activate '.$config['slug']);
+            }
+
         }
+
     }
 
     public static function create_wordup_archive($version, $files){
@@ -136,7 +156,7 @@ class Wordup_Commands {
      * ## OPTIONS
      * 
      * <config>
-     * : A base64 encoded json string, with the wordup package.json config 
+     * : A base64 encoded json string, with the wordup config 
      * 
      * [--wordup-connect=<wordup-connect>]
      * : A url to an wordpress hosted website, with the wordup-connect plugin installed an running
@@ -196,7 +216,7 @@ class Wordup_Commands {
      * ## OPTIONS
      * 
      * <config>
-     * : A base64 encoded json string, with the wordup package.json config 
+     * : A base64 encoded json string, with the wordup config 
      *
      * [--type=<type>]
      * : What do you want to export
@@ -253,6 +273,8 @@ class Wordup_Commands {
                 $export_version = WP_CLI::runcommand('theme get '.$this->config['slug'].' --field=version', array('return' => true));
             }else if($this->config['type'] === 'plugins'){
                 $export_version = WP_CLI::runcommand('plugin get '.$this->config['slug'].' --field=version', array('return' => true));
+            }else if($this->config['type'] === 'installation'){
+                $export_version = 'wp-content';
             }
 
             if($export_version){
@@ -269,6 +291,7 @@ class Wordup_Commands {
             }else{
                 WP_CLI::error( "Could not read version of the exported project");
             }
+            
         }
 
         //Export sql
@@ -282,6 +305,9 @@ class Wordup_Commands {
         if($export_type === 'installation'){
 
             $project_tmp_path = $export_tmp.'wp-content/'.$this->config['type'].'/'.$project_folder_name;
+            if($this->config['type'] === 'installation'){
+                $project_tmp_path = $export_tmp.'wp-content';
+            }
 
             WP_CLI::launch('cp -a /var/www/html/. '.$export_tmp);
 
@@ -296,14 +322,14 @@ class Wordup_Commands {
             file_put_contents($export_tmp.'wordup-archive.json', json_encode($wordup_archive_params, JSON_PRETTY_PRINT));
             WP_CLI::log('Writing wordup-archive.json for WP-Version: '.$wp_version);
 
-            //---- Export src to wp-content with dist-archive  ----
-            unlink($project_tmp_path);  //Unlink symlink
+            // ---- Export src with dist-archive and add to installation ----
+            unlink($project_tmp_path);  //Unlink plugin/theme/wp-content symlink
 
             WP_CLI::runcommand('dist-archive /src '.$export_tmp.'src.tar.gz --format=targz', array('return'=>true));
             WP_CLI::launch('tar -xvf '.$export_tmp.'src.tar.gz -C '.$export_tmp);
             WP_CLI::launch('mv '.$export_tmp.'src '.$project_tmp_path);
             unlink($export_tmp.'src.tar.gz');
-            
+
             $filename = !empty($assoc_args['filename']) ? $assoc_args['filename'] : 'installation-'.date('Y-m-d');
 
             //Create archive
@@ -318,11 +344,11 @@ class Wordup_Commands {
     private function parse_config($config){
         $config_json = json_decode(base64_decode($config), true); 
         if(!is_array($config_json)){
-            WP_CLI::error( "Could not parse wordup package.json settings" );
+            WP_CLI::error( "Could not parse wordup config.yml" );
         }else if(empty($config_json['slug']) || empty($config_json['type'])){
-            WP_CLI::error( "Could not find wordup settings in package.json" );
+            WP_CLI::error( "Could not find settings in config.yml" );
         }else{
-            WP_CLI::log( "Parsed wordup package.json with slug: ".$config_json['slug'] );
+            WP_CLI::log( "Parsed wordup config.yml with slug: ".$config_json['slug'] );
         }
         $this->config  = $config_json;
     }
@@ -570,7 +596,8 @@ class Wordup_Commands {
 
     private function scaffold_src() {
 
-        if($this->scaffold){
+        //Scaffold data only in plugin or theme projects
+        if($this->scaffold && $this->config['type'] !== 'installation'){
             //Check if .scaffold file exists and delete it 
             if(is_file('/src/.scaffold')){
                 WP_CLI::launch('unlink /src/.scaffold');
@@ -589,6 +616,7 @@ class Wordup_Commands {
                     }else{
                         WP_CLI::runcommand('scaffold _s '.$internal_name);
                     }
+
                 }else if($this->config['type'] == 'plugins'){
                     WP_CLI::runcommand('scaffold plugin '.$internal_name);
                 }
