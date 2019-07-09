@@ -390,7 +390,7 @@ class Wordup_Commands {
 
         // ------ Check which version ------
         if(!empty($installation_config['version'])){
-            WP_CLI::runcommand("core update --force ".($installation_config['version'] !== 'latest' ? "version=".$installation_config['version'] : ''));
+            WP_CLI::runcommand("core update --force ".($installation_config['version'] !== 'latest' ? " --version=".$installation_config['version'] : ''));
         }
 
         // ------ Install Plugins -----------
